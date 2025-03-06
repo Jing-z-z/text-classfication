@@ -4,6 +4,14 @@ import jieba.analyse
 import fasttext
 import pandas as pd
 
+"""
+用于预测数据的csv，xlsx文件第一行的前两列需要有title，content作为标题
+格式为：
+title      content
+新闻标题1    新闻内容1
+新闻标题2    新闻内容2
+"""
+
 label_to_category = {
     '__label__100': '其他',  # 包括'民生','文化','旅游','国际','证劵','农业'
     '__label__102': '娱乐',
@@ -18,17 +26,33 @@ label_to_category = {
 }
 
 
+# stopwords = set()
+# with open('stopwords.txt', 'r', encoding='utf-8') as f:
+#     for line in f:
+#         stopwords.add(line.strip())
+
+
 def preprocess(title, content):
-    if pd.isna(content) or content.strip() == '':
+    # 将缺失值或者非字符类型改为空字符
+    if pd.isna(title) or not isinstance(title, str):
+        title = ''
+    if pd.isna(content) or not isinstance(content, str):
+        content = ''
+
+    # 如果content为空，则仅使用title
+    if content.strip() == '':
         text = title
-
     else:
+        # cleaned_content = regex.sub(r'[^\p{L}\p{N}\p{Han}\s]', '', content, flags=regex.UNICODE)
+        # words = jieba.lcut(cleaned_content)
+        # filtered_words = [word for word in words if word not in stopwords]
+        # filtered_content = ' '.join(filtered_words)
         keywords = jieba.analyse.extract_tags(content, topK=10, allowPOS=('n', 'v', 'a'))
-        text = title + '' + " ".join(keywords)
+        text = title + '' + ' '.join(keywords)
 
-    cleaned_text = regex.sub(r'[^\p{L}\p{N}\p{Han}\s]', '', text, flags=regex.UNICODE)
-    words = jieba.lcut(cleaned_text)
-    return " ".join(words)
+    cleaned_content = regex.sub(r'[^\p{L}\p{N}\p{Han}\s]', '', text, flags=regex.UNICODE)
+    words = jieba.lcut(cleaned_content)
+    return ' '.join(words)
 
 
 def predict(file_path):
@@ -48,6 +72,8 @@ def predict(file_path):
         title = row['title']
         content = row['content']
         text = preprocess(title, content)
+        if pd.isna(title) or title.strip() == '':
+            continue
         labels, probabilities = model.predict(text, k=3)
         # 将预测结果转换为可读格式
         predictions = [(label_to_category.get(label, '未知分类'), prob) for label, prob in zip(labels, probabilities)]
@@ -67,13 +93,3 @@ try:
     predict(file_path)
 except Exception as e:
     print(f"发生错误: {e}")
-
-
-# title1 = input("请输入新闻标题: ")
-# content1 = input("请输入新闻内容: ")
-#
-# labels, probabilities = model.predict(preprocess(title1, content1), k=3)
-# print("预测类别及置信度:")
-# for label, prob in zip(labels, probabilities):
-#     categories = label_to_category.get(label, '未知分类')
-#     print(f"分类: {categories}, 置信度: {prob}")
